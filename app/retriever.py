@@ -1,75 +1,40 @@
 import pandas as pd
-from sentence_transformers import SentenceTransformer
-import faiss
-import numpy as np
 
-# load dataset
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+
+
 df = pd.read_csv("data/shl_assessments.csv")
 
-# load embedding model
-model = SentenceTransformer(
-    "sentence-transformers/paraphrase-MiniLM-L3-v2"
-)
-
-
-# prepare documents
 documents = (
     df["name"].fillna("") + " " +
     df["description"].fillna("")
-).tolist()
-
-
-
-# create embeddings
-embeddings = model.encode(
-    documents,
-    show_progress_bar=True
 )
 
-embeddings = np.array(embeddings)
+vectorizer = TfidfVectorizer()
 
-# create FAISS index
-dimension = embeddings.shape[1]
-
-index = faiss.IndexFlatL2(dimension)
-
-index.add(embeddings)
-
-print("RETRIEVER READY")
+tfidf_matrix = vectorizer.fit_transform(documents)
 
 
 def retrieve_assessments(query, top_k=5):
 
-    query_embedding = model.encode([query])
+    query_vector = vectorizer.transform([query])
 
-    D, I = index.search(
-        np.array(query_embedding),
-        top_k
-    )
+    similarities = cosine_similarity(
+        query_vector,
+        tfidf_matrix
+    ).flatten()
+
+    top_indices = similarities.argsort()[-top_k:][::-1]
 
     results = []
 
-    for idx in I[0]:
+    for idx in top_indices:
 
-        assessment = {
+        results.append({
             "name": df.iloc[idx]["name"],
             "url": df.iloc[idx]["url"],
-            "description": df.iloc[idx]["description"][:300]
-        }
-
-        results.append(assessment)
+            "description": df.iloc[idx]["description"]
+        })
 
     return results
-
-
-if __name__ == "__main__":
-
-    query = "Java backend developer"
-
-    results = retrieve_assessments(query)
-
-    for result in results:
-
-        print(result["name"])
-        print(result["url"])
-        print("-" * 50)
