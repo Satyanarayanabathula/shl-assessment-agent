@@ -8,8 +8,9 @@ df = pd.read_csv("data/shl_assessments.csv")
 
 # load embedding model
 model = SentenceTransformer(
-    "all-MiniLM-L6-v2"
+    "sentence-transformers/paraphrase-MiniLM-L3-v2"
 )
+
 
 # prepare documents
 documents = (
